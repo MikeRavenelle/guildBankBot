@@ -22,7 +22,6 @@ bot.login(CONFIG.token);
 
 bot.on('message', message => {
     if (message.author.bot) return;
-    console.log("Message: " + message.content);
     LoadData(message);
 });
 
@@ -426,8 +425,6 @@ function Help() {
 }
 
 function SaveData(args, filename) {
-    LogBoard();
-
     fs.mkdir('data/', { recursive: true }, (err) => {
         let csvWriter = createCsvWriter({
             path: 'data/' + filename,
@@ -438,16 +435,12 @@ function SaveData(args, filename) {
             ]
         });
 
-        csvWriter.writeRecords(_board)
-            .then(() => {
-                console.log('...Done');
-            });
+        csvWriter.writeRecords(_board);
     });
 }
 
 function LoadData(message) {
     _board.length = 0;
-    console.log("Guild ID: " + message.guild.id);
     data = fs.readFile("data/" + message.guild.id, function (err, data) {
         if (err) {
             CommandParse(message);
@@ -455,7 +448,6 @@ function LoadData(message) {
         else {
             if (typeof data !== "undefined") {
                 parse(data, { columns: false, trim: true }, function (err, rows) {
-                    console.log(rows);
                     if (typeof rows !== "undefined") {
                         for (let i = 1; i < rows.length; ++i) {
                             if (rows[i].length >= 2) {
@@ -469,7 +461,6 @@ function LoadData(message) {
                                 _board.push(new ItemEntry(rows[i][0], rows[i][1], assignments));
                             }
                         }
-                        LogBoard();
                     }
                     CommandParse(message);
                 })
