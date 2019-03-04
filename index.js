@@ -1,15 +1,15 @@
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const CONFIG = require('./config.json');
-
-var _guildName = "Set your guild name";
+var parse = require('csv-parse')
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const fs = require('fs');
 var _board = new Array();
-var globalMessageTest;
 
-var ItemEntry = function (itemName, amount) {
+var ItemEntry = function (itemName, amount, assigned = new Array()) {
     this._name = itemName;
     this._amount = amount;
-    this._assigned = new Array();
+    this._assigned = assigned;
 }
 
 bot.on('ready', () => {
@@ -21,6 +21,12 @@ bot.on('ready', () => {
 bot.login(CONFIG.token);
 
 bot.on('message', message => {
+    if (message.author.bot) return;
+    console.log("Message: " + message.content);
+    LoadData(message);
+});
+
+function CommandParse(message) {
     let msg = message.content;
     globalMessageTest = message;
     if (msg.substring(0, 1) === '!') {
@@ -32,9 +38,6 @@ bot.on('message', message => {
         let elevatedPermission = message.member.hasPermission("MANAGE_CHANNELS");
 
         switch (cmd) {
-            case 'gbb_guild':
-                output = GuildName(elevatedPermission, param1);
-                break;
             case 'assign':
                 output = AssignItem(elevatedPermission, param1, param2);
                 break;
@@ -60,30 +63,18 @@ bot.on('message', message => {
                 output = ChangeAmount(elevatedPermission, param1, param2);
                 break;
             case 'board':
-                output = ShowBoard();
+                output = ShowBoard(message.guild.name);
                 break;
             case 'gbb_help':
                 output = Help();
                 break;
         }
 
-        if (output.length > 0)
+        if (output.length > 0) {
+            SaveData(_board, message.guild.id);
             message.reply(output);
+        }
     }
-});
-
-function GuildName(elevatedPermission, guildName) {
-    let output = "";
-
-    if (elevatedPermission) {
-        _guildName = guildName;
-        output = "guild name set to " + _guildName + ".";
-    }
-    else {
-        output = "you do not have permission to do that. Tsk Tsk. Shame.";
-    }
-
-    return output;
 }
 
 function Add(elevatedPermission, item, value) {
@@ -312,23 +303,23 @@ function Withdraw(name, item) {
     return output;
 }
 
-function ShowBoard() {
-    let output = "\r\n" + _guildName + "'s Current Board\r\n```";
+function ShowBoard(guildName) {
+    let output = "\r\n" + guildName + "'s Current Board\r\n```";
     let longestNameLength = 11;
     let longestAmountLength = 8;
     let longestAssignedLength = 10;
 
     for (let i = 0; i < _board.length; ++i) {
-        if (_board[i]._name.length > longestNameLength)
+        if (_board[i]._name.length + 2 > longestNameLength)
             longestNameLength = _board[i]._name.length + 2;
 
-        if (_board[i]._amount.length > longestAmountLength)
+        if (_board[i]._amount.length + 2 > longestAmountLength)
             longestAmountLength = _board[i]._amount.length + 2;
     }
 
     for (let i = 0; i < _board.length; ++i) {
         for (let j = 0; j < _board[i]._assigned.length; ++j) {
-            if (_board[i]._assigned[j].length > longestAssignedLength)
+            if (_board[i]._assigned[j].length + 2 > longestAssignedLength)
                 longestAssignedLength = _board[i]._assigned[j].length + 2;
         }
     }
@@ -431,5 +422,70 @@ function ShowBoard() {
 }
 
 function Help() {
-    return "\r\n**Guild Bank Bot Help**\r\n**!gbb_help** : Shows help\r\n**!gbb_guild** \"name\" : Sets guild name to \"name\"\r\n**!board** : Shows the current board.\r\n**!assign** \"item\" \"name\" : Assigns \"item\" to \"name\".\r\n**!signup** \"item\" : Signs yourself up for \"item\".\r\n**!withdraw** \"item\" : Withdraws yourself from \"item\".\r\n**!unassign** \"item\" \"name\" : Unassigns \"item\" from \"name.\"\r\n**!assigned** \"name\" : Shows items currenty assigned to you.\r\n**!add** \"item\" \"amount\" : Adds \"item\" with amount \"amount\" to the board.\r\n**!remove** \"item\" : Removes \"item\" from the board.\r\n**!amount** \"item\" \"amount\" : Changes amount of \"item\" with \"amount\".";
+    return "\r\n**Guild Bank Bot Help**\r\n**!gbb_help** : Shows help\r\n**!board** : Shows the current board.\r\n**!assign** \"item\" \"name\" : Assigns \"item\" to \"name\".\r\n**!signup** \"item\" : Signs yourself up for \"item\".\r\n**!withdraw** \"item\" : Withdraws yourself from \"item\".\r\n**!unassign** \"item\" \"name\" : Unassigns \"item\" from \"name.\"\r\n**!assigned** \"name\" : Shows items currenty assigned to you.\r\n**!add** \"item\" \"amount\" : Adds \"item\" with amount \"amount\" to the board.\r\n**!remove** \"item\" : Removes \"item\" from the board.\r\n**!amount** \"item\" \"amount\" : Changes amount of \"item\" with \"amount\".";
+}
+
+function SaveData(args, filename) {
+    LogBoard();
+
+    fs.mkdir('data/', { recursive: true }, (err) => {
+        let csvWriter = createCsvWriter({
+            path: 'data/' + filename,
+            header: [
+                { id: '_name', title: 'Name' },
+                { id: '_amount', title: 'Amount' },
+                { id: '_assigned', title: 'Assigned' }
+            ]
+        });
+
+        csvWriter.writeRecords(_board)
+            .then(() => {
+                console.log('...Done');
+            });
+    });
+}
+
+function LoadData(message) {
+    _board.length = 0;
+    console.log("Guild ID: " + message.guild.id);
+    data = fs.readFile("data/" + message.guild.id, function (err, data) {
+        if (err) {
+            CommandParse(message);
+        }
+        else {
+            if (typeof data !== "undefined") {
+                parse(data, { columns: false, trim: true }, function (err, rows) {
+                    console.log(rows);
+                    if (typeof rows !== "undefined") {
+                        for (let i = 1; i < rows.length; ++i) {
+                            if (rows[i].length >= 2) {
+                                let assignments = new Array();
+                                let parseAssignment = rows[i][2].split(',');
+                                for (let j = 0; j < parseAssignment.length; ++j) {
+                                    if (parseAssignment[j].length > 0)
+                                        assignments.push(parseAssignment[j]);
+                                }
+
+                                _board.push(new ItemEntry(rows[i][0], rows[i][1], assignments));
+                            }
+                        }
+                        LogBoard();
+                    }
+                    CommandParse(message);
+                })
+            }
+        }
+    });
+}
+
+function LogBoard() {
+    console.log("Board Log:");
+    for (let i = 0; i < _board.length; ++i) {
+        console.log("Item: " + _board[i]._name + " Amount: " + _board[i]._amount + " Assigned: ");
+        if (typeof _board[i]._assigned !== "undefined") {
+            for (let j = 0; j < _board[i]._assigned.length; ++j) {
+                console.log(" " + _board[i]._assigned[j]);
+            }
+        }
+    }
 }
