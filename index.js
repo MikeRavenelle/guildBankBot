@@ -98,12 +98,16 @@ function Add(elevatedPermission, item, value) {
             }
         }
 
-        if(!itemFound)
-        {
-            _board.push(new ItemEntry(item, value));
-            output = item + " has been added to the board with a needed amount of " + value + ".";
+        if (!itemFound) {
+            if (!isNaN(value)) {
+                _board.push(new ItemEntry(item, value));
+                output = item + " has been added to the board with a needed amount of " + value + ".";
+            }
+            else {
+                output = value + " is not a valid number.";
+            }
         }
-        else{
+        else {
             output = item + " already exists on the board.";
         }
     }
@@ -209,18 +213,16 @@ function Assigned(name) {
     let output = "";
     for (let i = 0; i < _board.length; ++i) {
         for (let j = 0; j < _board[i]._assigned.length; ++j) {
-            if(_board[i]._assigned[j] === name)
-            {
-                output += "\r\n " + _board[i]._name  + " ";
+            if (_board[i]._assigned[j] === name) {
+                output += "\r\n " + _board[i]._name + " ";
             }
         }
     }
 
-    if(output.length === 0)
-    {
+    if (output.length === 0) {
         output = "you are currently not assigned to any items."
     }
-    
+
     return output;
 }
 
@@ -231,18 +233,22 @@ function ChangeAmount(elevatedPermission, item, value) {
         let itemUpdated = false;
         for (let i = 0; i < _board.length; ++i) {
             if (_board[i]._name === item) {
-                _board[i]._amount = value;
-                itemUpdated = true;
+                if (!isNaN(value)) {
+                    _board[i]._amount = value;
+                    itemUpdated = true;
+                }
                 break;
             }
         }
 
-        if(itemUpdated) {
+        if (itemUpdated) {
             output = item + " has been updated to " + value + ".";
         }
-        else
-        {
+        else if (!itemUpdated && !isNaN(value)) {
             output = item + " does not exists on the board.";
+        }
+        else if (isNaN(value)) {
+            output = value + " is not a valid number";
         }
     }
     else {
@@ -308,55 +314,116 @@ function Withdraw(name, item) {
 
 function ShowBoard() {
     let output = "\r\n" + _guildName + "'s Current Board\r\n```";
-    let longestNameLength = 0;
-    let longestAmountLength = 0;
-    
-    if(_board.length === 0)
-        output += " ";
+    let longestNameLength = 11;
+    let longestAmountLength = 8;
+    let longestAssignedLength = 10;
 
-    for(let i = 0; i < _board.length; ++i) {
-        if(_board[i]._name.length > longestNameLength)
-            longestNameLength = _board[i]._name.length;
+    for (let i = 0; i < _board.length; ++i) {
+        if (_board[i]._name.length > longestNameLength)
+            longestNameLength = _board[i]._name.length + 2;
 
-        if(_board[i]._amount.length > longestAmountLength)
-            longestAmountLength = _board[i]._amount.length;
+        if (_board[i]._amount.length > longestAmountLength)
+            longestAmountLength = _board[i]._amount.length + 2;
     }
 
-    for(let i = 0; i < _board.length; ++i) {
+    for (let i = 0; i < _board.length; ++i) {
+        for (let j = 0; j < _board[i]._assigned.length; ++j) {
+            if (_board[i]._assigned[j].length > longestAssignedLength)
+                longestAssignedLength = _board[i]._assigned[j].length + 2;
+        }
+    }
+
+    output += "|";
+
+    for (let i = 0; i < longestNameLength; ++i) output += "‾";
+
+    output += "|";
+
+    for (let i = 0; i < longestAmountLength; ++i) output += "‾";
+
+    output += "|";
+
+    for (let i = 0; i < longestAssignedLength; ++i) output += "‾";
+
+    output += "|\r\n| Item Name ";
+
+    for (let i = 0; i < longestNameLength - 11; ++i) output += " ";
+
+    output += "| Amount ";
+
+    for (let i = 0; i < longestAmountLength - 8; ++i) output += " ";
+
+    output += "| Assigned ";
+
+    for (let i = 0; i < longestAssignedLength - 10; ++i) output += " ";
+
+    output += "|\r\n";
+
+    for (let i = 0; i < _board.length; ++i) {
+        output += "|";
+        for (let k = 0; k < longestNameLength; ++k) output += "-";
+        output += "|";
+        for (let k = 0; k < longestAmountLength; ++k) output += "-";
+        output += "|";
+        for (let k = 0; k < longestAssignedLength; ++k) output += "-";
+        output += "|\r\n| ";
+
         output += _board[i]._name;
-        for(let j = 0; j < (longestNameLength - _board[i]._name.length); ++j) {
-            output += " ";
-        }
 
-        output += " " + _board[i]._amount;
+        for (let j = 0; j < (longestNameLength - _board[i]._name.length - 1); ++j) output += " ";
+        output += "| ";
+        output += _board[i]._amount;
 
-        for(let j = 0; j < (longestAmountLength - _board[i]._amount.length); ++j) {
-            output += " ";
-        }
+        for (let j = 0; j < (longestAmountLength - _board[i]._amount.length - 1); ++j) output += " ";
 
+        output += "|";
         let firstAssigned = false;
 
-        for(let j = 0; j < _board[i]._assigned.length; ++j) {
-            if(!firstAssigned)
-            {
-                output += " " + _board[i]._assigned[j];
-                firstAssigned = true;
-            }
-            else
-            {
-                let currentSpacing = longestAmountLength + longestNameLength + 2;
-                for(let k = 0; k < currentSpacing; ++k) {
-                    output += " ";
+        if (_board[i]._assigned.length > 0) {
+            for (let j = 0; j < _board[i]._assigned.length; ++j) {
+                if (!firstAssigned) {
+                    output += " " + _board[i]._assigned[j];
+                    for (let k = 0; k < (longestAssignedLength - _board[i]._assigned[j].length - 1); ++k) output += " ";
+                    firstAssigned = true;
+                }
+                else {
+                    output += "|";
+
+                    for (let k = 0; k < longestNameLength; ++k) output += " ";
+
+                    output += "|";
+
+                    for (let k = 0; k < longestAmountLength; ++k) output += " ";
+
+                    output += "| ";
+
+                    output += _board[i]._assigned[j];
+
+                    for (let k = 0; k < (longestAssignedLength - _board[i]._assigned[j].length - 1); ++k) output += " ";
                 }
 
-                output +=  _board[i]._assigned[j];
+                output += "|\r\n";
             }
-
-            output += "\r\n";
         }
-
-        output += "\r\n";
+        else {
+            for (let k = 0; k < longestAssignedLength; ++k) output += " ";
+            output += "|\r\n";
+        }
     }
+
+    output += "|";
+
+    for (let i = 0; i < longestNameLength; ++i) output += "_";
+
+    output += "|";
+
+    for (let i = 0; i < longestAmountLength; ++i) output += "_";
+
+    output += "|";
+
+    for (let i = 0; i < longestAssignedLength; ++i) output += "_";
+
+    output += "|";
 
     output += "```";
 
